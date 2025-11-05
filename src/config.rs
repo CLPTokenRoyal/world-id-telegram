@@ -7,6 +7,7 @@ use teloxide::{
 	utils::html::escape,
 };
 use url::Url;
+use crate::i18n::Translation; // AÑADIR ESTA LÍNEA
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AppConfig {
@@ -27,7 +28,7 @@ impl AppConfig {
 			.build()?
 			.try_deserialize()
 	}
-
+	
 	pub fn posthog(&self) -> Option<posthog_rs::Client> {
 		self.posthog_token
 			.as_ref()
@@ -38,7 +39,6 @@ impl AppConfig {
 #[serde_as]
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GroupsConfig {
-	/// List of allowed groups, if `None` bot will allow all groups
 	#[serde(default)]
 	pub allowed_group_ids: Vec<ChatId>,
 	#[serde(default)]
@@ -52,7 +52,7 @@ impl GroupsConfig {
 	pub fn is_group_allowed(&self, chat_id: ChatId) -> bool {
 		self.allowed_group_ids.is_empty() || self.allowed_group_ids.contains(&chat_id)
 	}
-
+	
 	pub fn get(&self, chat_id: ChatId) -> &GroupSettings {
 		match self.group_settings.get(&chat_id.0) {
 			Some(s) => s,
@@ -64,12 +64,12 @@ impl GroupsConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct GroupSettings {
 	pub chat_name: Option<String>,
-	/// List of allowed admin to use bot commands and admin related stuff
 	pub admin_ids: Option<Vec<UserId>>,
 	#[serde(with = "humantime_serde")]
 	pub ban_after: Duration,
 	#[serde(default)]
 	pub messages: MessagesText,
+	pub language: Option<String>, // AÑADIR ESTA LÍNEA
 }
 
 impl Default for GroupSettings {
@@ -79,6 +79,7 @@ impl Default for GroupSettings {
 			admin_ids: None,
 			messages: MessagesText::default(),
 			ban_after: Duration::from_secs(60 * 5),
+			language: None, // AÑADIR ESTA LÍNEA
 		}
 	}
 }
@@ -102,15 +103,25 @@ impl MessagesText {
 			)
 			.replace("{CHATNAME}", &escape(chat_name))
 	}
+	
+	// AÑADIR ESTE MÉTODO
+	pub fn from_translation(translation: &Translation) -> Self {
+		Self {
+			new_user_template: translation.new_user_template.clone(),
+			unauthorized_group: translation.unauthorized_group.clone(),
+			successfully_verified: translation.successfully_verified.clone(),
+			user_doesnt_match_error: translation.user_doesnt_match_error.clone(),
+		}
+	}
 }
 
 impl Default for MessagesText {
 	fn default() -> Self {
 		Self {
-            user_doesnt_match_error: "❌ This message isn't for you".to_string(),
+			user_doesnt_match_error: "❌ This message isn't for you".to_string(),
 			unauthorized_group: "❌ You can't use this bot on this group. Bye!".to_string(),
 			successfully_verified: "✅ Verified with World ID. Welcome to the group!".to_string(),
-            new_user_template: "👋 gm {TAGUSER}! Welcome to {CHATNAME}.\nTo access the group, please verify your account with World ID.".to_string(),
+			new_user_template: "👋 gm {TAGUSER}! Welcome to {CHATNAME}.\nTo access the group, please verify your account with World ID.".to_string(),
 		}
 	}
 }
