@@ -8,6 +8,7 @@ use axum::{
 use indoc::formatdoc;
 use posthog_rs::Event;
 use serde_json::json;
+use std::sync::Arc;
 use teloxide::{
 	types::{ChatId, User, UserId},
 	Bot,
@@ -17,9 +18,16 @@ use tokio::{net::TcpListener, signal};
 use crate::{
 	bot::{on_verified, JoinRequests},
 	config::AppConfig,
+	i18n::I18n, // AÑADIR
 };
 
-pub async fn start(bot: Bot, config: AppConfig, bot_data: User, join_requests: JoinRequests) {
+pub async fn start(
+	bot: Bot,
+	config: AppConfig,
+	bot_data: User,
+	join_requests: JoinRequests,
+	i18n: Arc<I18n>, // AÑADIR ESTE PARÁMETRO
+) {
 	let app = Router::new()
 		.route(
 			"/",
@@ -34,7 +42,8 @@ pub async fn start(bot: Bot, config: AppConfig, bot_data: User, join_requests: J
 		)
 		.layer(Extension(bot))
 		.layer(Extension(config))
-		.layer(Extension(join_requests));
+		.layer(Extension(join_requests))
+		.layer(Extension(i18n)); // AÑADIR ESTA LÍNEA
 
 	let listener = TcpListener::bind(("0.0.0.0", 8000)).await.unwrap();
 	log::info!(
@@ -52,19 +61,30 @@ async fn verify_page(
 	Extension(config): Extension<AppConfig>,
 	Path((chat_id, user_id)): Path<(ChatId, UserId)>,
 	Extension(join_reqs): Extension<JoinRequests>,
+	Extension(i18n): Extension<Arc<I18n>>, // AÑADIR ESTE PARÁMETRO
 ) -> Result<Html<String>, StatusCode> {
 	let join_req = join_reqs
 		.get(&(chat_id, user_id))
 		.ok_or(StatusCode::NOT_FOUND)?;
 	let msg_id = join_req.msg_id.ok_or(StatusCode::CONFLICT)?;
+	
+	// Detectar idioma del grupo o usuario
+	let group_settings = config.groups_config.get(chat_id);
+	let lang = group_settings
+		.language
+		.as_ref()
+		.map(|s| s.as_str())
+		.unwrap_or("en");
+	
+	let translation = i18n.get(lang);
 
 	let page = formatdoc! {"<!DOCTYPE html>
-        <html lang=\"en\">
+        <html lang=\"{lang}\">
             <head>
                 <meta charset=\"UTF-8\" />
                 <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\" />
                 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
-                <title>Verify with World ID</title>
+                <title>{title}</title>
             </head>
             <body>
                 <script src=\"https://unpkg.com/@worldcoin/idkit-standalone/build/index.global.js\"></script>
@@ -86,15 +106,21 @@ async fn verify_page(
                             headers: {{ 'Content-Type': 'application/json' }},
                         }})
 
-                        if (res.ok) alert('Successfully verified! You can now close this and go back to the group.')
-                        else if (res.status === 429) alert('This World ID has already been used to join this group. You can\\'t do it again!')
-                        else alert('Something went wrong, please try again later.')
+                        if (res.ok) alert('{alert_success}')
+                        else if (res.status === 429) alert('{alert_already_used}')
+                        else alert('{alert_error}')
 
                         window.close()
                     }})
                 </script>
             </body>
-        </html>", app_id = config.app_id
+        </html>",
+		lang = lang,
+		title = translation.verify_button,
+		app_id = config.app_id,
+		alert_success = translation.alert_success.replace("'", "\\'"),
+		alert_already_used = translation.alert_already_used.replace("'", "\\'"),
+		alert_error = translation.alert_error.replace("'", "\\'"),
 	};
 
 	Ok(Html(page))
@@ -141,13 +167,11 @@ async fn verify_api(
 	if req.status().is_client_error() || req.status().is_server_error() {
 		let res = req.json::<serde_json::Value>().await.map_err(|e| {
 			log::error!("Failed to deserialize dev portal body: {e:?}");
-
 			StatusCode::INTERNAL_SERVER_ERROR
 		})?;
 
 		let Some(code) = res.get("code") else {
 			log::error!("Developer Portal returned error: {:?}", res);
-
 			return Err(StatusCode::BAD_REQUEST);
 		};
 
@@ -170,7 +194,6 @@ async fn verify_api(
 
 		posthog.capture(event).map_err(|e| {
 			log::error!("Failed to send event to PostHog: {e:?}");
-
 			StatusCode::INTERNAL_SERVER_ERROR
 		})?;
 	}
