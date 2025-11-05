@@ -1,3 +1,3 @@
 # world-id-telegram
 
-Make your Telegram groups sybil-resistant with World ID.
+Clone of Oficial Develop. Make your Telegram groups sybil-resistant with World ID. Updated with Multilanguage support
