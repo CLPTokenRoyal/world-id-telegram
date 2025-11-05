@@ -9,7 +9,8 @@ use teloxide::{
 	Bot,
 };
 
-use crate::{bot::commands::Command, config::AppConfig};
+use crate::{bot::commands::Command, config::AppConfig, i18n::I18n}; // MODIFICAR ESTA LÍNEA
+
 pub use join_check::on_verified;
 
 mod commands;
@@ -34,22 +35,26 @@ impl JoinRequest {
 	}
 }
 
-pub async fn start(bot: Bot, config: AppConfig, join_requests: JoinRequests) {
+pub async fn start(
+	bot: Bot,
+	config: AppConfig,
+	join_requests: JoinRequests,
+	i18n: Arc<I18n>, // AÑADIR ESTE PARÁMETRO
+) {
 	log::info!("Starting World ID bot...");
-
 	bot.set_my_commands(Command::bot_commands())
 		.await
 		.expect("Failed to set commands");
-
+	
 	let handler = dptree::entry().branch(
 		Update::filter_message()
 			.branch(Message::filter_new_chat_members().endpoint(join_check::join_handler))
 			.branch(Message::filter_text().endpoint(commands::command_handler)),
 	);
-
+	
 	Dispatcher::builder(bot, handler)
 		.default_handler(|_| async {})
-		.dependencies(dptree::deps![Arc::new(config), join_requests])
+		.dependencies(dptree::deps![Arc::new(config), join_requests, i18n]) // MODIFICAR ESTA LÍNEA
 		.enable_ctrlc_handler()
 		.build()
 		.dispatch()
