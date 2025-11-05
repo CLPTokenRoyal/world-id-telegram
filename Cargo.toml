@@ -1,6 +1,6 @@
 [package]
 license = "MIT"
-edition = "2025"
+edition = "2021"
 version = "0.1.1"
 readme = "README.md"
 name = "world-id-telegram"
