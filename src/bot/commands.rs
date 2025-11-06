@@ -50,7 +50,7 @@ pub async fn command_handler(
 		.language
 		.as_ref()
 		.map(|s| s.as_str())
-		.unwrap_or_else(|| &i18n.detect_language(msg.from()));
+		.unwrap_or_else(|| i18n.detect_language(msg.from()));
 	let translation = i18n.get(lang);
 	
 	match command {
