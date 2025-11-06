@@ -94,7 +94,7 @@ impl I18n {
             .unwrap_or_else(|| self.translations.get(&self.default_lang).unwrap())
     }
     
-    pub fn detect_language(&self, user: Option<&User>) -> String {
+    pub fn detect_language(&self, user: Option<&User>) -> &str {
         if let Some(user) = user {
             if let Some(lang_code) = &user.language_code {
                 let lang = lang_code.split('-').next().unwrap_or("en");
