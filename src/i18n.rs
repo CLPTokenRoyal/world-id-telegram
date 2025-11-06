@@ -99,11 +99,11 @@ impl I18n {
             if let Some(lang_code) = &user.language_code {
                 let lang = lang_code.split('-').next().unwrap_or("en");
                 if self.translations.contains_key(lang) {
-                    return lang.to_string();
+                    return lang;
                 }
             }
         }
-        self.default_lang.clone()
+        &self.default_lang.clone()
     }
     
     pub fn available_languages(&self) -> Vec<String> {
