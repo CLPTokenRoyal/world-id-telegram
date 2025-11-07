@@ -90,24 +90,32 @@ pub async fn command_handler(
 }
 
 pub async fn on_group_not_allowed(
-	bot: Bot,
-	config: &GroupsConfig,
-	msg: Message,
-	i18n: Arc<I18n>, // AÑADIR ESTE PARÁMETRO
+    bot: Bot,
+    config: &GroupsConfig,
+    msg: Message,
+    i18n: Arc<I18n>,
 ) -> HandlerResult {
-	log::error!(
-		"Unknown chat {} with id {}",
-		msg.chat.title().unwrap_or_default(),
-		msg.chat.id
-	);
-	
-	// Detectar idioma del usuario
-	let lang = i18n.detect_language(msg.from());
-	let translation = i18n.get(&lang);
-	
-	bot.send_message(msg.chat.id, &translation.unauthorized_group)
-		.await?;
-	bot.leave_chat(msg.chat.id).await?;
-	
-	Ok(())
+    let chat_id = msg.chat.id;
+    let chat_title = msg.chat.title().unwrap_or_default();
+    log::warn!(
+        "Attempt to use bot in unauthorized group: '{}' ({})",
+        chat_title,
+        chat_id
+    );
+
+    // Verificamos idioma del usuario que agregó el bot
+    let lang = i18n.detect_language(msg.from());
+    let translation = i18n.get(lang);
+
+    // Enviamos mensaje de advertencia
+    bot.send_message(chat_id, &translation.unauthorized_group)
+        .await?;
+
+    // Si el grupo está realmente no autorizado, nos salimos
+    if !config.is_group_allowed(chat_id) {
+        bot.leave_chat(chat_id).await?;
+    }
+
+    Ok(())
 }
+
