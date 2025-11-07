@@ -93,18 +93,19 @@ impl I18n {
             .get(lang)
             .unwrap_or_else(|| self.translations.get(&self.default_lang).unwrap())
     }
-    
-    pub fn detect_language(&self, user: Option<&User>) -> &str {
-        if let Some(user) = user {
-            if let Some(lang_code) = &user.language_code {
-                let lang = lang_code.split('-').next().unwrap_or("en");
-                if self.translations.contains_key(lang) {
-                    return lang;
-                }
+
+    pub fn detect_language<'a>(&'a self, user: Option<&'a User>) -> &'a str {
+    if let Some(user) = user {
+        if let Some(lang_code) = &user.language_code {
+            let lang = lang_code.split('-').next().unwrap_or("en");
+            if self.translations.contains_key(lang) {
+                return lang;
             }
         }
-        &self.default_lang.clone()
     }
+    self.default_lang.as_str()
+}
+
     
     pub fn available_languages(&self) -> Vec<String> {
         self.translations.keys().cloned().collect()
